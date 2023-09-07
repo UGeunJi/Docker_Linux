@@ -13,9 +13,9 @@ ex) cp -r a /test/b
 
 > 명령어
 
-mv -r 원본폴더 목적지폴더
+mv 원본폴더 목적지폴더
 
-ex) mv -r a /test/b
+ex) mv a /test/b
 
 <br>
 <br>
@@ -26,7 +26,7 @@ ex) mv -r a /test/b
 
 rm -rf 폴더
 
-ex) rm -rf /test/b
+ex) rm -rf a
 
 <br>
 <br>
