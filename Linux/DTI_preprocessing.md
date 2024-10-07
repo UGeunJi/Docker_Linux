@@ -67,7 +67,7 @@ for dir in $(find . -type d -path '*/NIFTI'); do
     bval_file="$dir/DICOM_Axial_DTI_*.bval"
     
     # Create a filtered bval file
-    awk '{for(i=1;i<=NF;i++) if(i==1 || $i!=0) printf $i" "; print ""}' $bval_file > find "$dir" -name 'filtered.bval'
+    awk '{for(i=1;i<=NF;i++) if(i==1 || $i!=0) printf $i" "; print ""}' $bval_file > "$dir/filtered.bval"
 done
 ```
 
