@@ -44,8 +44,8 @@ Extracerebral CSF
 ### 명령어
 ```
 for dat_file in *.dat; do
-    # dat 파일 이름에서 'N' 뒤에 오는 7자리 숫자 추출
-    output_prefix=$(echo "$dat_file" | grep -o 'N[0-9]\{6\}')
+    # dat 파일 이름에서 'B' 뒤에 오는 5자리 숫자 추출
+    output_prefix=$(echo "$dat_file" | grep -o 'B[0-9]\{5\}')
     
     # 출력 확인
     echo ${output_prefix}
@@ -62,7 +62,7 @@ for dat_file in *.dat; do
     # 4. 세 번째 행은 dat 파일에서의 값 (1~255번 값들)
     awk 'NR >= 1 && NR <= 255 {printf "%s,", $2}' "$dat_file" | sed 's/,$//' > values.csv
 
-    # 5. 최종 CSV 파일로 합침 (파일 이름에 추출한 7자리 숫자 포함)
+    # 5. 최종 CSV 파일로 합침 (파일 이름에 추출한 6자리 문자 포함)
     paste -d '\n' header_numbers.csv header_anatomical_regions.csv values.csv > "${output_prefix}_output.csv"
 
     # 6. 임시 파일 삭제
