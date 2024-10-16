@@ -1,3 +1,163 @@
+# default (반복문)
+
+###################################################################################################################################################################################################
+##################################################################################       output_filtered_0        #################################################################################
+###################################################################################################################################################################################################
+
+for dir in $(find . -type d -path '*/NIFTI'); do
+    # Define the paths for the bval and nii.gz files in the current directory
+    echo "Processing directory: ${dir}"
+    bval_file=$(find "$dir" -name 'DICOM_*.bval' | sort)
+    nii_file=$(find "$dir" -name 'DICOM_*.nii.gz' | sort)
+
+    # Check if the bval file exists
+    if [[ ! -f $bval_file ]]; then
+        echo "Warning: bval file not found: $bval_file"
+        continue
+    fi
+
+    # Get total number of volumes
+    total_volumes=$(fslnvols "$nii_file")
+
+    # Initialize an array to keep the indices to keep
+    indices_to_keep=()
+    
+    # Read the bval file and determine which indices to keep
+    read -r line < "$bval_file"  # Read the first line of the bval file
+    for i in $(seq 0 $((total_volumes - 1))); do
+        if [ "$i" -eq 0 ]; then
+            indices_to_keep+=("$i")  # Always keep the first index (0)
+        else
+            # Check if the bval value is 1000 or not
+            bval_value=$(echo "$line" | awk -v idx=$((i + 1)) '{print $idx}')  # index in awk starts from 1
+            if [[ "$bval_value" -eq 1000 ]]; then
+                indices_to_keep+=("$i")  # Keep this index if bval is 1000
+            fi
+        fi
+    done
+
+    # Use fslroi to extract volumes based on the indices to keep
+    for index in "${indices_to_keep[@]}"; do
+        # If the index is not in the indices to keep, skip fslroi
+        fslroi "$nii_file" "$dir/output_$(printf "%03d" $index).nii.gz" "$index" 1
+    done
+
+    rm -rf "$dir/output_filtered_0.nii.gz"
+
+    # Merge the resulting volumes back together
+    fslmerge -t "$dir/output_filtered_0.nii.gz" $(find "$dir" -name 'output_*.nii.gz' | sort)
+
+    # Clean up intermediate files
+    rm -f $(find "$dir" -name 'output_*.nii.gz' ! -name 'output_filtered_0.nii.gz')
+done
+
+
+
+###################################################################################################################################################################################################
+#######################################################################################       bvec 삭제        #####################################################################################
+###################################################################################################################################################################################################
+
+for dir in $(find . -type d -path '*/NIFTI'); do
+    # Define the paths for the bval and bvec files in the current directory
+    bval_file=$(find "$dir" -name 'DICOM_*.bval' | sort)
+    bvec_file=$(find "$dir" -name 'DICOM_*.bvec' | sort)
+    
+    # Get total number of volumes from bval file
+    total_volumes=$(awk 'NR==1 {print NF}' "$bval_file")
+
+    # Initialize an array to keep indices of bval values that are 1000
+    indices_to_keep=()
+
+    # Read the bval file and determine which indices to keep (skip first line)
+    read -r line < "$bval_file"  # Read the first line of the bval file
+    for i in $(seq 2 $total_volumes); do  # Start from 2 to skip the first index
+        bval_value=$(echo "$line" | awk -v idx="$i" '{print $idx}')  # Get the bval value at index i
+        if [[ "$bval_value" -eq 1000 ]]; then
+            indices_to_keep+=("$i")  # Keep this index if bval is 1000
+        fi
+    done
+
+    # Create a filtered bvec file
+    awk -v indices="${indices_to_keep[*]}" '
+    BEGIN {
+        split(indices, index_arr);
+        for (i in index_arr) {
+            keep[index_arr[i]] = 1;  # Mark indices to keep
+        }
+    }
+    {
+        for (i = 1; i <= NF; i++) {
+            if (keep[i] || i == 1) {  # Always keep the first column
+                printf "%s ", $i;  # Print only the columns that need to be kept
+            }
+        }
+        print "";  # New line after each row
+    }' "$bvec_file" > "$dir/filtered.bvec"
+done
+
+
+
+###################################################################################################################################################################################################
+#######################################################################################       bval 삭제        #####################################################################################
+###################################################################################################################################################################################################
+
+for dir in $(find . -type d -path '*/NIFTI'); do
+    # Define the path for the bval file in the current directory
+    bval_file=$(find "$dir" -name 'DICOM_*.bval' | sort)
+    
+    # Create a filtered bval file
+    awk '{
+        if (NR == 1) {
+            for (i=1; i<=NF; i++) {
+                if (i == 1 || $i == 1000) {
+                    printf "%s ", $i;
+                }
+            }
+            print ""
+        }
+    }' $bval_file > "$dir/filtered.bval"
+done
+
+#!/bin/bash
+for dir in $(find . -type d -path '*/NIFTI'); do
+    # NIFTI 폴더 내의 filtered.bval 파일 경로
+    bval_file=$(find "$dir" -name 'filtered.bval' | sort)
+
+    
+    # 파일이 존재하는지 확인하고 첫 번째 행이 0이 아닌지 확인
+    if [ -f "$bval_file" ] && [ $(head -n 1 "$bval_file") -ne 0 ]; then
+        echo "$dir"
+    fi
+done
+
+for dir in $(find . -type d -path '*/*/NIFTI'); do
+    bval_file="${dir}/filtered.bval"
+
+    if [ -f "$bval_file" ] && [ $(awk '{print $1}' "$bval_file") -ne 0 ]; then
+        echo "$dir"
+    fi
+done
+
+
+
+
+
+
+
+
+## 기존 bvec, bval 삭제 명령어
+find . -type f \( -name 'filtered.bval' -o -name 'filtered.bvec' \) -path '*/NIFTI/*' -delete
+
+## 기존 bvec, bval 이름 변경 명령어
+find . -type f -path '*/NIFTI/*' \( -name 'filtered_re.bval' -o -name 'filtered_re.bvec' \) -exec bash -c 'mv "$0" "${0/_re/}"' {} \;
+
+
+
+
+'''
+###########################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################
+'''
+
 ### brain_mask nii화 + 해당 subject의 DTI file 경로로 이동
 ```
 export FREESURFER_HOME=/usr/local/freesurfer
